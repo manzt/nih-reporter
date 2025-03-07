@@ -1,0 +1,28 @@
+name: Generate Data and Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate-data:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: astral-sh/setup-uv@v5
+
+      - run: |
+          deno run -A mod.ts --outdir=data
+          uv run --with=duckdb python -c "import duckdb; duckdb.sql(\"copy (select * from 'data/**/*.json') to 'data.parquet'\")"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create $(date +'%Y-%m-%d') data.parquet
